@@ -9,6 +9,7 @@ export const Settings: React.FC<{ user: any }> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const wpPluginCode = `<?php
 /**
@@ -87,18 +88,27 @@ add_shortcode( 'abirlink_erp', 'abirlink_erp_shortcode' );
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    const res = await fetch("/api/settings", {
-      method: "PUT",
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${localStorage.getItem("token")}`
-      },
-      body: JSON.stringify(settings),
-    });
-    if (res.ok) {
+    setSaveStatus(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify(settings),
+      });
+      if (res.ok) {
+        setSaveStatus({ type: 'success', message: "Settings saved successfully!" });
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        const data = await res.json();
+        setSaveStatus({ type: 'error', message: data.error || "Failed to save settings" });
+      }
+    } catch (err) {
+      setSaveStatus({ type: 'error', message: "Network error. Please try again." });
+    } finally {
       setSaving(false);
-      alert("Settings saved successfully!");
-      window.location.reload();
     }
   };
 
@@ -150,6 +160,16 @@ add_shortcode( 'abirlink_erp', 'abirlink_erp_shortcode' );
       </div>
 
       <form onSubmit={handleSave} className="space-y-8">
+        {saveStatus && (
+          <div className={cn(
+            "p-4 rounded-xl border mb-6 flex items-center justify-between",
+            saveStatus.type === 'success' ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "bg-red-500/10 border-red-500/20 text-red-400"
+          )}>
+            <span className="font-medium">{saveStatus.message}</span>
+            <button onClick={() => setSaveStatus(null)} className="text-xl leading-none">&times;</button>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {/* Company Info */}
           <GlassCard className="space-y-6">
@@ -274,7 +294,7 @@ add_shortcode( 'abirlink_erp', 'abirlink_erp_shortcode' );
                     value={settings.balances[key]}
                     onChange={(e) => setSettings({ 
                       ...settings, 
-                      balances: { ...settings.balances, [key]: e.target.value } 
+                      balances: { ...settings.balances, [key]: Number(e.target.value) } 
                     })}
                     className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50"
                   />

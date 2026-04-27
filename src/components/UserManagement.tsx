@@ -11,6 +11,8 @@ export const UserManagement: React.FC<{ user: any }> = ({ user }) => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
   const [formData, setFormData] = useState({
     username: "",
     password: "",
@@ -46,23 +48,31 @@ export const UserManagement: React.FC<{ user: any }> = ({ user }) => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     const url = editingUser ? `/api/users/${editingUser.id}` : "/api/users";
     const method = editingUser ? "PUT" : "POST";
     
-    const res = await fetch(url, {
-      method,
-      headers: { 
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${localStorage.getItem("token")}`
-      },
-      body: JSON.stringify(formData),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${localStorage.getItem("token")}`
+        },
+        body: JSON.stringify(formData),
+      });
 
-    if (res.ok) {
-      setIsModalOpen(false);
-      setEditingUser(null);
-      setFormData({ username: "", password: "", name: "", role: "Employee" });
-      fetchUsers();
+      if (res.ok) {
+        setIsModalOpen(false);
+        setEditingUser(null);
+        setFormData({ username: "", password: "", name: "", role: "Employee" });
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        setError(data.error || "Failed to save user");
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
     }
   };
 
@@ -75,25 +85,43 @@ export const UserManagement: React.FC<{ user: any }> = ({ user }) => {
     if (res.ok) fetchUsers();
   };
 
+  const filteredUsers = users.filter(u => 
+    u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   if (loading) return <div className="text-slate-400">Loading users...</div>;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h3 className="text-2xl font-bold text-white">User Management</h3>
           <p className="text-slate-500">Manage system access and roles</p>
         </div>
-        <button
-          onClick={() => { setEditingUser(null); setIsModalOpen(true); }}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all"
-        >
-          <UserPlus className="w-5 h-5" /> Add User
-        </button>
+        <div className="flex w-full md:w-auto gap-3">
+          <div className="relative flex-1 md:w-64">
+            <input
+              type="text"
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50"
+            />
+            <Users className="w-5 h-5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          </div>
+          <button
+            onClick={() => { setError(null); setEditingUser(null); setFormData({ username: "", password: "", name: "", role: "Employee" }); setIsModalOpen(true); }}
+            className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-600/20 transition-all shrink-0"
+          >
+            <UserPlus className="w-5 h-5" /> Add User
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {users.map((u) => (
+        {filteredUsers.length > 0 ? filteredUsers.map((u) => (
           <GlassCard key={u.id} className="relative group">
             <div className="flex items-center gap-4 mb-6">
               <div className="w-12 h-12 rounded-2xl bg-slate-800 border border-white/10 flex items-center justify-center text-xl font-bold text-blue-400">
@@ -134,7 +162,11 @@ export const UserManagement: React.FC<{ user: any }> = ({ user }) => {
               </button>
             </div>
           </GlassCard>
-        ))}
+        )) : (
+          <div className="col-span-full py-12 text-center text-slate-500">
+            No users found matching your search.
+          </div>
+        )}
       </div>
 
       {/* Modal */}
@@ -149,6 +181,13 @@ export const UserManagement: React.FC<{ user: any }> = ({ user }) => {
               <h3 className="text-xl font-bold text-white mb-6">
                 {editingUser ? "Edit User" : "Add New User"}
               </h3>
+              
+              {error && (
+                <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm">
+                  {error}
+                </div>
+              )}
+
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-xs font-bold text-slate-500 uppercase ml-1">Full Name</label>
