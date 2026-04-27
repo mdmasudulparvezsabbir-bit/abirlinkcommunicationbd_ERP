@@ -113,7 +113,26 @@ add_shortcode( 'abirlink_erp', 'abirlink_erp_shortcode' );
 
   if (loading) return <div className="text-slate-400">Loading settings...</div>;
 
-  const netBalance = (Object.values(settings.balances) as number[]).reduce((a: number, b: number) => a + Number(b), 0);
+  if (!settings || !settings.balances) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex justify-between items-center">
+          <div>
+            <h3 className="text-2xl font-bold text-white">Admin Settings</h3>
+            <p className="text-red-500">Error: Settings not found or initialized. Please try to refresh or contact support.</p>
+          </div>
+          <button
+            onClick={handleReset}
+            className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 border border-red-600/20 transition-all"
+          >
+            <RefreshCw className="w-5 h-5" /> Reset System Data
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const netBalance = (Object.values(settings.balances) as (string | number)[]).reduce((a: number, b: any) => a + Number(b), 0);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
